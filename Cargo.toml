@@ -24,3 +24,4 @@ crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
+serini = "0.2.2"
