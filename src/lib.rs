@@ -3,12 +3,12 @@
 /// D3D Proxy, proxy all functions of "d3dcompiler_43.dll
 /// https://git.redump.net/mame/tree/3rdparty/dxsdk/Include/d3dcompiler.h?id=06b848185fb4559750a0f4a8de8a5a7789a9eca5
 /// win-sdk-headers/d3dcompiler.h
-use std::sync::OnceLock;
+use std::ffi::c_void;
 
 use ntapi::ntmmapi::{NtReadVirtualMemory, NtWriteVirtualMemory};
 use windows::{
     Win32::{
-        Foundation::{HANDLE, HINSTANCE, HMODULE, HWND},
+        Foundation::{HANDLE, HMODULE, HWND},
         System::{
             LibraryLoader::GetModuleHandleA,
             Threading::{OpenProcess, PROCESS_ALL_ACCESS},
@@ -19,7 +19,7 @@ use windows::{
             SetWindowLongPtrW, SetWindowPos, WS_EX_TOPMOST, WS_POPUP, WS_VISIBLE,
         },
     },
-    core::{BOOL, PCSTR},
+    core::PCSTR,
 };
 
 mod d3d_proxy;
@@ -32,39 +32,54 @@ mod mod_config;
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 /// # Safety
-/// it's not safe.
-pub unsafe extern "system" fn DllMain(
-    _base_addr: HINSTANCE,
-    reason: u32,
-    _isstatic: BOOL,
-) -> windows::core::BOOL {
+///
+pub unsafe extern "C" fn DllMain(_base_addr: usize, reason: u32, _isstatic: bool) -> bool {
     eprintln!(
         "load DDL MAIN: {reason}, PROCESS ATTACH number: {}",
         windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH
     );
 
-    if reason == windows::Win32::System::SystemServices::DLL_THREAD_ATTACH {
-        // try_to_load_mod();
-    }
-
-    true.into()
-}
-
-static mut MOD_LOADED: bool = false;
-pub fn try_to_load_mod() {
-    static INI_CONFIG: OnceLock<ModConfig> = OnceLock::new();
-    let config = INI_CONFIG.get_or_init(ModConfig::load_ini_file);
-
-    unsafe {
-        if !MOD_LOADED {
-            if let Err(e) = apply_mod(config) {
-                eprintln!("Unable to apply mod {e:?}");
-            } else {
-                eprintln!("MOD-DARKSOULS-3:MOD LOADED");
-                MOD_LOADED = true;
-            }
+    if reason == windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH {
+        unsafe {
+            let _ = windows::Win32::System::Threading::CreateThread(
+                None,
+                0,
+                Some(try_to_apply_mod),
+                None,
+                windows::Win32::System::Threading::THREAD_CREATION_FLAGS(0),
+                None,
+            );
         }
     }
+
+    true
+}
+
+unsafe extern "system" fn try_to_apply_mod(_args: *mut c_void) -> u32 {
+
+    unsafe {
+        eprintln!("DARK SOULS MOD NOT LOADED");
+
+        let timeout = std::time::Duration::from_secs(5);
+
+        let instat = std::time::Instant::now();
+
+        windows::Win32::System::Threading::Sleep(500);
+
+        let config = ModConfig::load_ini_file();
+
+        while let Err(e) = apply_mod(&config) {
+            eprintln!("Unable to Apply mod: {e:?}");
+            windows::Win32::System::Threading::Sleep(500);
+            if instat.elapsed() > timeout {
+                eprintln!("Mod TIMEOUT unable to apply mod");
+                return 1;
+            }
+        }
+        eprintln!("DARK SOULS MOD LOADED");
+    }
+
+    0
 }
 
 unsafe fn apply_mod(config: &ModConfig) -> Result<(), windows::core::Error> {

@@ -1,20 +1,16 @@
 use core::ffi::c_void;
 use std::ffi::CString;
 
-use crate::try_to_load_mod;
-
-
 use windows::{
     Win32::{
         Foundation::HMODULE,
         System::{
-            LibraryLoader::{ GetProcAddress, LoadLibraryW},
+            LibraryLoader::{GetProcAddress, LoadLibraryW},
             SystemInformation::GetSystemDirectoryW,
         },
     },
     core::{HRESULT, PCSTR, PCWSTR},
 };
-
 
 macro_rules! export_func {
     ($name:ident, $fn_ptr:ident, $return:ty, $($params:ident: $types:ty),*) => {
@@ -41,7 +37,6 @@ macro_rules! export_func {
                 let func = GetProcAddress(module,PCSTR(c_string.as_ptr() as *const u8)).expect(concat!(stringify!($name), " not Founded"));
                 let func:$name = std::mem::transmute(func);
                 $fn_ptr = Some(func);
-                try_to_load_mod();
 
                 func($($params),*)
 
@@ -218,7 +213,6 @@ fn join_with_module_name(
     (dll_path, new_size)
 }
 
-
 #[cfg(test)]
 mod tests {
 
@@ -241,8 +235,6 @@ mod tests {
             full_path[path_size], 0,
             "the End of C string should be NULL value: 0"
         );
-
-
     }
 }
 
