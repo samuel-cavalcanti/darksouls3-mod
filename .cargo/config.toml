@@ -1,4 +1,5 @@
 [build]
 target = "x86_64-pc-windows-gnu"
-rustflags =["-C","link-args= -nostartfiles -shared -Wno-multichar -Wl,--image-base,0x150000000,-e,DllMain"]
 
+[target."x86_64-pc-windows-gnu"]
+runner = "wine"
