@@ -11,7 +11,7 @@ pub struct ModConfig {
 impl Default for ModConfig {
     fn default() -> Self {
         Self {
-            fps: 1000.0,
+            fps: 60.0,
             skip_intro: false,
             center_x: false,
             enable_borderless: false,

@@ -1,8 +1,5 @@
 #![windows_subsystem = "windows"]
 
-/// D3D Proxy, proxy all functions of "d3dcompiler_43.dll
-/// https://git.redump.net/mame/tree/3rdparty/dxsdk/Include/d3dcompiler.h?id=06b848185fb4559750a0f4a8de8a5a7789a9eca5
-/// win-sdk-headers/d3dcompiler.h
 use std::ffi::c_void;
 
 use ntapi::ntmmapi::{NtReadVirtualMemory, NtWriteVirtualMemory};
@@ -22,6 +19,9 @@ use windows::{
     core::PCSTR,
 };
 
+/// D3D Proxy, proxy all functions of "d3dcompiler_43.dll
+/// https://git.redump.net/mame/tree/3rdparty/dxsdk/Include/d3dcompiler.h?id=06b848185fb4559750a0f4a8de8a5a7789a9eca5
+/// win-sdk-headers/d3dcompiler.h
 mod d3d_proxy;
 pub use d3d_proxy::*;
 
@@ -56,7 +56,6 @@ pub unsafe extern "C" fn DllMain(_base_addr: usize, reason: u32, _isstatic: bool
 }
 
 unsafe extern "system" fn try_to_apply_mod(_args: *mut c_void) -> u32 {
-
     unsafe {
         eprintln!("DARK SOULS MOD NOT LOADED");
 
@@ -96,18 +95,69 @@ unsafe fn apply_mod(config: &ModConfig) -> Result<(), windows::core::Error> {
 
         change_window_border(window, config.enable_borderless)?;
         change_window_pos(window, config.center_x)?;
-        skip_intro(config.skip_intro, base_address)?;
+        skip_intro(config.skip_intro, base_address, p_handle)?;
     }
 
     Ok(())
 }
 
-unsafe fn skip_intro(skip: bool, base_address: HMODULE) -> Result<(), windows::core::Error> {
-    let _base_addr = base_address;
-
+unsafe fn skip_intro(
+    skip: bool,
+    base_address: HMODULE,
+    p_handle: HANDLE,
+) -> Result<(), windows::core::Error> {
     if !skip {
         return Ok(());
     }
+
+    const ENABLE_BYTES: [u8; 20] = [
+        0xE8, 0x1C, 0xBA, 0xFB, 0xFF, 0x90, 0x4D, 0x8B, 0xC7, 0x49, 0x8B, 0xD4, 0x48, 0x8B, 0xC8,
+        0xE8, 0x0D, 0xBA, 0xFB, 0xFF,
+    ];
+    const DISABLE_BYTES: [u8; 20] = [
+        // skip intro for 1.52.1
+        0x48u8, 0x31, 0xC0, 0x48, 0x89, 0x02, 0x49, 0x89, 0x04, 0x24, 0x90, 0x90, 0x90, 0x90, 0x90,
+        0x90, 0x90, 0x90, 0x90, 0x90,
+    ];
+
+    unsafe {
+        let base_address = base_address.0 as u64;
+        let skip_intro_address = base_address + 0x0BF43EF; //0x0BE9D0F
+        let mut skips_bytes: [u8; 20] = [0; 20];
+        let p_u8 = skips_bytes.as_mut_ptr();
+
+        let status_r = NtReadVirtualMemory(
+            p_handle.0 as *mut ntapi::winapi::ctypes::c_void,
+            skip_intro_address as *mut ntapi::winapi::ctypes::c_void,
+            p_u8 as *mut ntapi::winapi::ctypes::c_void,
+            size_of::<u8>() * skips_bytes.len(),
+            std::ptr::null_mut(),
+        );
+
+        eprintln!("Skip bytes: {skips_bytes:?}");
+        eprintln!("Expected bytes: {ENABLE_BYTES:?}");
+
+        const SUCCESS: i32 = 0;
+
+        if status_r == SUCCESS && skips_bytes == ENABLE_BYTES {
+            let p_u8 = DISABLE_BYTES.as_ptr();
+
+            let status_w = NtWriteVirtualMemory(
+                p_handle.0 as *mut ntapi::winapi::ctypes::c_void,
+                skip_intro_address as *mut ntapi::winapi::ctypes::c_void,
+                p_u8 as *mut ntapi::winapi::ctypes::c_void,
+                size_of::<u8>() * DISABLE_BYTES.len(),
+                std::ptr::null_mut(),
+            );
+
+            let status = [status_r, status_w];
+            eprintln!("Skip intro change was Applied: {status:?} SUCCESS==0")
+        } else {
+            eprintln!("ERROR: SKIP intro was not applied!!")
+        }
+    }
+
+    let _base_addr = base_address;
 
     //TODO: how to change memory to skip the intro ?
 

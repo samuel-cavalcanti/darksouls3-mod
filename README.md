@@ -5,8 +5,9 @@ Features:
 - change fps cap
 - centralize the window game
 - remove the window border
+- Skip intro
 
-This mod was tested on Linux (Archlinux) with **wine-11.0**
+This mod was tested on Linux (Archlinux) with **wine-11.0** Game version: **1.15.2**
 
 ![DARK SOULS 3](./docs/darksoul3_.png)
 
