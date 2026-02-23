@@ -157,17 +157,7 @@ unsafe fn skip_intro(
         }
     }
 
-    let _base_addr = base_address;
 
-    //TODO: how to change memory to skip the intro ?
-
-    // let status_w2 = NtWriteVirtualMemory(
-    //     p_handle.0 as *mut ntapi::winapi::ctypes::c_void,
-    //     (gfx_address + 0x358) as *mut ntapi::winapi::ctypes::c_void,
-    //     p_u8 as *mut ntapi::winapi::ctypes::c_void,
-    //     size_of::<u8>(),
-    //     std::ptr::null_mut(),
-    // );
 
     Ok(())
 }
