@@ -24,4 +24,6 @@ crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
+ntapi = "0.4.3"
+serde = { version = "1.0.228", features = ["derive"] }
 serini = "0.2.2"

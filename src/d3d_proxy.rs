@@ -1,16 +1,20 @@
 use core::ffi::c_void;
 use std::ffi::CString;
 
+use crate::try_to_load_mod;
+
+
 use windows::{
     Win32::{
         Foundation::HMODULE,
         System::{
-            LibraryLoader::{GetProcAddress, LoadLibraryW},
+            LibraryLoader::{ GetProcAddress, LoadLibraryW},
             SystemInformation::GetSystemDirectoryW,
         },
     },
     core::{HRESULT, PCSTR, PCWSTR},
 };
+
 
 macro_rules! export_func {
     ($name:ident, $fn_ptr:ident, $return:ty, $($params:ident: $types:ty),*) => {
@@ -37,8 +41,10 @@ macro_rules! export_func {
                 let func = GetProcAddress(module,PCSTR(c_string.as_ptr() as *const u8)).expect(concat!(stringify!($name), " not Founded"));
                 let func:$name = std::mem::transmute(func);
                 $fn_ptr = Some(func);
+                try_to_load_mod();
 
                 func($($params),*)
+
             }
         }
     };
@@ -58,8 +64,7 @@ ppCode:*mut *mut c_void,
 ppErrorMsgs:*mut *mut c_void
 );
 
-export_func!(D3DPreprocess,D3D_PREPROCESS,HRESULT,
-pSrcData:*const c_void,
+export_func!(D3DPreprocess,D3D_PREPROCESS,HRESULT, pSrcData:*const c_void,
 srcDataSize:usize,
 pSourceName: *const c_void,
 pDefines:*const c_void,
@@ -213,6 +218,33 @@ fn join_with_module_name(
     (dll_path, new_size)
 }
 
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let system_dir = "C:windows\\system32";
+        let mut buffer: [u16; BUFFER_SIZE] = [0; BUFFER_SIZE];
+
+        let vec_16: Vec<u16> = system_dir.encode_utf16().collect();
+        buffer[0..vec_16.len()].clone_from_slice(&vec_16);
+
+        let (full_path, path_size) = join_with_module_name(buffer, vec_16.len());
+
+        let rust_string = String::from_utf16(&full_path[0..path_size]).unwrap();
+        assert_eq!(rust_string, "C:windows\\system32\\D3DCOMPILER_43.dll");
+
+        assert_eq!(
+            full_path[path_size], 0,
+            "the End of C string should be NULL value: 0"
+        );
+
+
+    }
+}
 
 // D3dcompiler_47.dll functions
 
